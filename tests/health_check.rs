@@ -1,5 +1,5 @@
 use std::net::TcpListener;
-use zero2prod::run;
+use zero2prod::startup::run;
 
 #[tokio::test]
 async fn should_be_success_when_health_check_works() {
