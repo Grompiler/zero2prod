@@ -1,16 +1,61 @@
+use sqlx::{Connection, Executor, PgConnection, PgPool};
 use std::net::TcpListener;
+use uuid::Uuid;
+use zero2prod::configuration::{get_configuration, DatabaseSettings};
 use zero2prod::startup::run;
+
+struct TestApp {
+    address: String,
+    db_pool: PgPool,
+}
+
+async fn spawn_app() -> TestApp {
+    let listener = TcpListener::bind("127.0.0.1:0").expect("Failed to bind random port");
+    let port = listener.local_addr().unwrap().port();
+    let mut database = get_configuration()
+        .expect("Failed to read configuration.")
+        .database;
+    database.database_name = Uuid::new_v4().to_string();
+    let connection_pool = configure_database(&database).await;
+    let server = run(listener, connection_pool.clone()).expect("Failed to bind address");
+    let _ = tokio::spawn(server);
+    TestApp {
+        address: format!("http://127.0.0.1:{port}"),
+        db_pool: connection_pool,
+    }
+}
+
+async fn configure_database(config: &DatabaseSettings) -> PgPool {
+    let mut connection = PgConnection::connect(&config.connection_string_without_db_name())
+        .await
+        .expect("Failed to connect to Postgres");
+    connection
+        .execute(format!(r#"CREATE DATABASE "{}";"#, config.database_name).as_str())
+        .await
+        .expect("Failed to create the database");
+
+    let connection_pool = PgPool::connect(&config.connection_string())
+        .await
+        .expect("Failed to connect to Postgres");
+
+    sqlx::migrate!("./migrations")
+        .run(&connection_pool)
+        .await
+        .expect("Failed to migrate the database");
+
+    connection_pool
+}
 
 #[tokio::test]
 async fn should_be_success_when_health_check_works() {
     // Given
-    let address = spawn_app();
+    let app = spawn_app().await;
     let client = reqwest::Client::new();
     let expected_body_size = Some(0);
 
     // When
     let response = client
-        .get(format!("{}/health-check", address))
+        .get(format!("{}/health-check", app.address))
         .send()
         .await
         .expect("Failed to execute the request");
@@ -20,39 +65,41 @@ async fn should_be_success_when_health_check_works() {
     assert_eq!(expected_body_size, response.content_length());
 }
 
-fn spawn_app() -> String {
-    let listener = TcpListener::bind("127.0.0.1:0").expect("Failed to bind random port");
-    let port = listener.local_addr().unwrap().port();
-    let server = run(listener).expect("Failed to bind adress");
-    let _ = tokio::spawn(server);
-    format!("http://127.0.0.1:{port}")
-}
-
 #[tokio::test]
-async fn should_return_200_when_form_data_is_valid() {
+async fn should_return_200_and_save_data_when_form_is_valid() {
     // Given
-    let app_address = spawn_app();
+    let app = spawn_app().await;
     let client = reqwest::Client::new();
     let expected_status = 200;
-    let body = "name=le%20guin&email=ursula%40@gmail.com";
+    let body = "name=le%20guin&email=ursula%40gmail.com";
+
+    let expected_email = "ursula@gmail.com";
+    let expected_name = "le guin";
 
     // When
     let response = client
-        .post(&format!("{}/subsribe", &app_address))
+        .post(&format!("{}/subsribe", &app.address))
         .header("Content-Type", "application/x-www-form-urlencoded")
         .body(body)
         .send()
         .await
         .expect("Failed to execute the request");
 
+    let saved = sqlx::query!("SELECT email, name FROM subscriptions")
+        .fetch_one(&app.db_pool)
+        .await
+        .expect("Failed to fetch saved subscriptions");
+
     // Then
     assert_eq!(expected_status, response.status());
+    assert_eq!(expected_email, saved.email);
+    assert_eq!(expected_name, saved.name);
 }
 
 #[tokio::test]
 async fn should_return_400_when_form_data_is_not_valid() {
     // Given
-    let app_address = spawn_app();
+    let app = spawn_app().await;
     let client = reqwest::Client::new();
     let expected_status = 400;
     let test_cases = vec![
@@ -64,7 +111,7 @@ async fn should_return_400_when_form_data_is_not_valid() {
     for (invalid_body, error_message) in test_cases {
         // When
         let response = client
-            .post(&format!("{}/subsribe", &app_address))
+            .post(&format!("{}/subsribe", &app.address))
             .header("Content-Type", "application/x-www-form-urlencoded")
             .body(invalid_body)
             .send()
