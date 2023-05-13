@@ -141,3 +141,35 @@ async fn should_return_400_when_form_data_is_not_valid() {
         );
     }
 }
+
+#[tokio::test]
+async fn should_return_400_when_fields_are_present_but_invalid() {
+    // Given
+    let app = spawn_app().await;
+    let client = reqwest::Client::new();
+    let expected_status = 400;
+    let test_cases = vec![
+        ("name=&email=ursula@gmail.com", "empty name"),
+        ("name=le%40guin&email=", "empty email"),
+        ("name=ursula&email=not_an_email", "invalid email"),
+    ];
+
+    for (invalid_body, error_message) in test_cases {
+        // When
+        let response = client
+            .post(&format!("{}/subscribe", &app.address))
+            .header("Content-Type", "application/x-www-form-urlencoded")
+            .body(invalid_body)
+            .send()
+            .await
+            .expect("Failed to execute the request");
+
+        // Then
+        assert_eq!(
+            expected_status,
+            response.status(),
+            "The api did not fail with 400 Bad Request when the payload was {}",
+            error_message
+        );
+    }
+}
