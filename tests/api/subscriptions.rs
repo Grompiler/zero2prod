@@ -4,7 +4,6 @@ use crate::helpers::spawn_app;
 async fn should_return_200_and_save_data_when_form_is_valid() {
     // Given
     let app = spawn_app().await;
-    let client = reqwest::Client::new();
     let expected_status = 200;
     let body = "name=le%20guin&email=ursula%40gmail.com";
 
@@ -12,13 +11,7 @@ async fn should_return_200_and_save_data_when_form_is_valid() {
     let expected_name = "le guin";
 
     // When
-    let response = client
-        .post(&format!("{}/subscribe", &app.address))
-        .header("Content-Type", "application/x-www-form-urlencoded")
-        .body(body)
-        .send()
-        .await
-        .expect("Failed to execute the request");
+    let response = app.post_subscribe(body.into()).await;
 
     let saved = sqlx::query!("SELECT email, name FROM subscriptions")
         .fetch_one(&app.db_pool)
@@ -35,7 +28,6 @@ async fn should_return_200_and_save_data_when_form_is_valid() {
 async fn should_return_400_when_form_data_is_not_valid() {
     // Given
     let app = spawn_app().await;
-    let client = reqwest::Client::new();
     let expected_status = 400;
     let test_cases = vec![
         ("name=le%20guin", "missing email"),
@@ -45,13 +37,7 @@ async fn should_return_400_when_form_data_is_not_valid() {
 
     for (invalid_body, error_message) in test_cases {
         // When
-        let response = client
-            .post(&format!("{}/subscribe", &app.address))
-            .header("Content-Type", "application/x-www-form-urlencoded")
-            .body(invalid_body)
-            .send()
-            .await
-            .expect("Failed to execute the request");
+        let response = app.post_subscribe(invalid_body.into()).await;
 
         // Then
         assert_eq!(
@@ -67,7 +53,6 @@ async fn should_return_400_when_form_data_is_not_valid() {
 async fn should_return_400_when_fields_are_present_but_invalid() {
     // Given
     let app = spawn_app().await;
-    let client = reqwest::Client::new();
     let expected_status = 400;
     let test_cases = vec![
         ("name=&email=ursula@gmail.com", "empty name"),
@@ -77,13 +62,7 @@ async fn should_return_400_when_fields_are_present_but_invalid() {
 
     for (invalid_body, error_message) in test_cases {
         // When
-        let response = client
-            .post(&format!("{}/subscribe", &app.address))
-            .header("Content-Type", "application/x-www-form-urlencoded")
-            .body(invalid_body)
-            .send()
-            .await
-            .expect("Failed to execute the request");
+        let response = app.post_subscribe(invalid_body.into()).await;
 
         // Then
         assert_eq!(
