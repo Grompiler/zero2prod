@@ -64,7 +64,7 @@ fn run(
         App::new()
             .wrap(TracingLogger::default())
             .route("/health-check", web::get().to(health_check))
-            .route("/subscribe", web::post().to(subscribe))
+            .route("/subscriptions", web::post().to(subscribe))
             .app_data(db_pool.clone())
             .app_data(email_client.clone())
     })
