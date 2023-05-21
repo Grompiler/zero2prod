@@ -150,8 +150,8 @@ async fn subscribe_should_send_a_confirmation_email_with_a_link_for_valid_subscr
     };
 
     // Then
-    let html_link = get_link(&body["HtmlBody"].as_str().unwrap());
-    let text_link = get_link(&body["TextBody"].as_str().unwrap());
+    let html_link = get_link(body["HtmlBody"].as_str().unwrap());
+    let text_link = get_link(body["TextBody"].as_str().unwrap());
 
     assert_eq!(html_link, text_link);
 }
