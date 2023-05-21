@@ -3,10 +3,11 @@ use serde::Deserialize;
 
 #[derive(Deserialize)]
 pub struct Parameters {
-    _subscription_token: String,
+    subscription_token: String,
 }
 
-#[tracing::instrument(name = "Confirm a pending subscriber", skip(_parameters))]
-pub async fn confirm(_parameters: web::Query<Parameters>) -> HttpResponse {
+#[tracing::instrument(name = "Confirm a pending subscriber", skip(parameters))]
+pub async fn confirm(parameters: web::Query<Parameters>) -> HttpResponse {
+    let _ = &parameters.subscription_token;
     HttpResponse::Ok().finish()
 }
