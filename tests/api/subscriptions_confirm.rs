@@ -39,3 +39,39 @@ async fn should_return_200_when_calling_subscribe_link() {
     // Then
     assert_eq!(expected_status, response.status())
 }
+
+#[tokio::test]
+async fn clicking_on_the_confirmation_link_confirms_a_subscriber() {
+    // Given
+    let app = spawn_app().await;
+    let body = "name=le%20guin&email=ursula%40gmail.com";
+    let expected_name = "le guin";
+    let expected_email = "ursula@gmail.com";
+    let expected_status = "confirmed";
+
+    Mock::given(path("/email"))
+        .and(method("POST"))
+        .respond_with(ResponseTemplate::new(200))
+        .mount(&app.email_server)
+        .await;
+
+    // When
+    app.post_subscribe(body.into()).await;
+    let email_request = &app.email_server.received_requests().await.unwrap()[0];
+    let confirmation_links = app.get_confirmation_links(email_request);
+    let _response = reqwest::get(confirmation_links.html)
+        .await
+        .unwrap()
+        .error_for_status()
+        .unwrap();
+
+    // Then
+    let saved = sqlx::query!("SELECT email, name, status FROM subscriptions")
+        .fetch_one(&app.db_pool)
+        .await
+        .expect("Failed to fetch saved subscription.");
+
+    assert_eq!(expected_email, saved.email);
+    assert_eq!(expected_name, saved.name);
+    assert_eq!(expected_status, saved.status);
+}
