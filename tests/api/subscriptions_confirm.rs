@@ -31,7 +31,7 @@ async fn should_return_200_when_calling_subscribe_link() {
         .await;
 
     // When
-    app.post_subscribe(body.into()).await;
+    app.post_subscriptions(body.into()).await;
     let email_request = &app.email_server.received_requests().await.unwrap()[0];
     let confirmation_links = app.get_confirmation_links(email_request);
     let response = reqwest::get(confirmation_links.html).await.unwrap();
@@ -56,7 +56,7 @@ async fn clicking_on_the_confirmation_link_confirms_a_subscriber() {
         .await;
 
     // When
-    app.post_subscribe(body.into()).await;
+    app.post_subscriptions(body.into()).await;
     let email_request = &app.email_server.received_requests().await.unwrap()[0];
     let confirmation_links = app.get_confirmation_links(email_request);
     let _response = reqwest::get(confirmation_links.html)

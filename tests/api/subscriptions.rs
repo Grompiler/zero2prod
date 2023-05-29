@@ -17,7 +17,7 @@ async fn subscribe_should_return_200_when_form_is_valid() {
         .await;
 
     // When
-    let response = app.post_subscribe(body.into()).await;
+    let response = app.post_subscriptions(body.into()).await;
 
     // Then
     assert_eq!(expected_status, response.status());
@@ -41,7 +41,7 @@ async fn subscribe_should_persist_subscriber_when_form_is_valid() {
         .await;
 
     // When
-    let _response = app.post_subscribe(body.into()).await;
+    let _response = app.post_subscriptions(body.into()).await;
 
     let saved = sqlx::query!("SELECT email, name, status FROM subscriptions")
         .fetch_one(&app.db_pool)
@@ -67,7 +67,7 @@ async fn subscribe_should_return_400_when_form_data_is_not_valid() {
 
     for (invalid_body, error_message) in test_cases {
         // When
-        let response = app.post_subscribe(invalid_body.into()).await;
+        let response = app.post_subscriptions(invalid_body.into()).await;
 
         // Then
         assert_eq!(
@@ -92,7 +92,7 @@ async fn subscribe_should_return_400_when_fields_are_present_but_invalid() {
 
     for (invalid_body, error_message) in test_cases {
         // When
-        let response = app.post_subscribe(invalid_body.into()).await;
+        let response = app.post_subscriptions(invalid_body.into()).await;
 
         // Then
         assert_eq!(
@@ -118,7 +118,7 @@ async fn subscribe_should_send_a_confirmation_email_for_valid_data() {
         .await;
 
     // When
-    app.post_subscribe(body.into()).await;
+    app.post_subscriptions(body.into()).await;
 
     // Then
     // Mock asserts on drop
@@ -137,10 +137,29 @@ async fn subscribe_should_send_a_confirmation_email_with_a_link_for_valid_subscr
         .await;
 
     // When
-    app.post_subscribe(body.into()).await;
+    app.post_subscriptions(body.into()).await;
     let email_request = &app.email_server.received_requests().await.unwrap()[0];
     let confirmation_links = app.get_confirmation_links(email_request);
 
     // Then
     assert_eq!(confirmation_links.html, confirmation_links.plain_text);
+}
+
+#[tokio::test]
+async fn subscribe_should_fail_when_fatal_database_error() {
+    // Given
+    let app = spawn_app().await;
+    let body = "name=le%guin&email=ursula%40gmail.com";
+    let expected_status = 500;
+
+    sqlx::query!("ALTER TABLE subscription_tokens DROP COLUMN subscription_token;",)
+        .execute(&app.db_pool)
+        .await
+        .unwrap();
+
+    // When
+    let response = app.post_subscriptions(body.into()).await;
+
+    // Then
+    assert_eq!(expected_status, response.status());
 }

@@ -19,7 +19,7 @@ pub struct ConfirmationsLinks {
 }
 
 impl TestApp {
-    pub async fn post_subscribe(&self, body: String) -> reqwest::Response {
+    pub async fn post_subscriptions(&self, body: String) -> reqwest::Response {
         let client = reqwest::Client::new();
         client
             .post(&format!("{}/subscriptions", &self.address))
