@@ -1,5 +1,6 @@
+use argon2::password_hash::SaltString;
+use argon2::{Argon2, PasswordHasher};
 use once_cell::sync::Lazy;
-use sha3::Digest;
 use sqlx::{Connection, Executor, PgConnection, PgPool};
 use uuid::Uuid;
 use wiremock::MockServer;
@@ -35,8 +36,11 @@ impl TestUser {
         }
     }
     async fn store(&self, pool: &PgPool) {
-        let password_hash = sha3::Sha3_256::digest(self.password.as_bytes());
-        let password_hash = format!("{:x}", password_hash);
+        let salt = SaltString::generate(&mut rand::thread_rng());
+        let password_hash = Argon2::default()
+            .hash_password(self.password.as_bytes(), &salt)
+            .unwrap()
+            .to_string();
         sqlx::query!(
             "INSERT INTO users (user_id, username, password_hash) VALUES ($1, $2, $3)",
             self.user_id,
@@ -60,6 +64,7 @@ impl TestApp {
             .await
             .expect("Failed to execute the request")
     }
+
     pub async fn post_newsletters(&self, body: serde_json::Value) -> reqwest::Response {
         reqwest::Client::new()
             .post(&format!("{}/newsletters", &self.address))
@@ -69,6 +74,7 @@ impl TestApp {
             .await
             .expect("Failed to execute request.")
     }
+
     pub fn get_confirmation_links(&self, email_request: &wiremock::Request) -> ConfirmationsLinks {
         let body: serde_json::Value = serde_json::from_slice(&email_request.body).unwrap();
         let expected_host = "127.0.0.1";
