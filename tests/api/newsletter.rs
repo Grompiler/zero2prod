@@ -90,6 +90,32 @@ async fn should_return_400_for_invalid_data() {
     }
 }
 
+#[tokio::test]
+async fn should_reject_when_authorization_is_missing() {
+    // Given
+    let app = spawn_app().await;
+    let expected_status = 401;
+    let expected_auth_header = r#"Basic realm="publish""#;
+
+    // When
+    let response = reqwest::Client::new()
+        .post(&format!("{}/newsletters", &app.address))
+        .json(&serde_json::json!({
+                    "title": "Newsletter title",
+                    "content": {
+                        "text": "Newsletter body as plain text",
+                        "html": "<p>Newsletter body as html</p>"
+                    }
+        }))
+        .send()
+        .await
+        .expect("Failed to execute the request");
+
+    // Then
+    assert_eq!(expected_status, response.status());
+    assert_eq!(expected_auth_header, response.headers()["WWW-Authenticate"]);
+}
+
 async fn create_unconfirmed_subscriber(app: &TestApp) -> ConfirmationsLinks {
     let body = "name=le%20guin&email=ursula%40gmail.com";
 
