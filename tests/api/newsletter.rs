@@ -1,4 +1,5 @@
 use crate::helpers::{spawn_app, ConfirmationsLinks, TestApp};
+use uuid::Uuid;
 use wiremock::matchers::{any, method, path};
 use wiremock::{Mock, ResponseTemplate};
 
@@ -149,4 +150,62 @@ async fn create_confirmed_subsriber(app: &TestApp) {
         .unwrap()
         .error_for_status()
         .unwrap();
+}
+
+#[tokio::test]
+async fn should_reject_non_existing_user() {
+    // Given
+    let app = spawn_app().await;
+    let username = Uuid::new_v4().to_string();
+    let password = Uuid::new_v4().to_string();
+    let expected_status = 401;
+    let expected_auth_header = r#"Basic realm="publish""#;
+
+    // When
+    let response = reqwest::Client::new()
+        .post(&format!("{}/newsletters", &app.address))
+        .basic_auth(username, Some(password))
+        .json(&serde_json::json!({
+            "title": "Newsletter title",
+            "content":{
+                "text": "Newsletter body as plain text",
+                "html": "<p>Newsletter body as html</p>",
+            }
+        }))
+        .send()
+        .await
+        .expect("Failed to execute request.");
+
+    // Then
+    assert_eq!(expected_status, response.status());
+    assert_eq!(expected_auth_header, response.headers()["WWW-Authenticate"]);
+}
+
+#[tokio::test]
+async fn should_reject_existing_user_when_wrong_password() {
+    // Given
+    let app = spawn_app().await;
+    let username = &app.test_user.username;
+    let password = Uuid::new_v4().to_string();
+    let expected_status = 401;
+    let expected_auth_header = r#"Basic realm="publish""#;
+
+    // When
+    let response = reqwest::Client::new()
+        .post(&format!("{}/newsletters", &app.address))
+        .basic_auth(username, Some(password))
+        .json(&serde_json::json!({
+            "title": "Newsletter title",
+            "content":{
+                "text": "Newsletter body as plain text",
+                "html": "<p>Newsletter body as html</p>",
+            }
+        }))
+        .send()
+        .await
+        .expect("Failed to execute request.");
+
+    // Then
+    assert_eq!(expected_status, response.status());
+    assert_eq!(expected_auth_header, response.headers()["WWW-Authenticate"]);
 }
