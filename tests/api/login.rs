@@ -40,7 +40,7 @@ async fn should_redirect_to_admin_dashboard_when_login_success() {
     // Then
     assert_is_redirect_to(&response, expected_redirect);
 
-    let html_page = app.get_admin_dashboard().await;
+    let html_page = app.get_admin_dashboard_html().await;
 
     assert!(html_page.contains(&format!("Welcome {}", app.test_user.username)));
 }
