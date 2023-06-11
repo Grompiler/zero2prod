@@ -23,3 +23,24 @@ async fn should_set_an_error_flash_message_on_failure() {
     let html_page = app.get_login_html().await;
     assert!(!html_page.contains("Authentication failed"));
 }
+
+#[tokio::test]
+async fn should_redirect_to_admin_dashboard_when_login_success() {
+    // Given
+    let app = spawn_app().await;
+    let expected_redirect = "/admin/dashboard";
+
+    // When
+    let login_body = serde_json::json!({
+         "username": &app.test_user.username,
+         "password": &app.test_user.password,
+    });
+    let response = app.post_login(&login_body).await;
+
+    // Then
+    assert_is_redirect_to(&response, expected_redirect);
+
+    let html_page = app.get_admin_dashboard().await;
+
+    assert!(html_page.contains(&format!("Welcome {}", app.test_user.username)));
+}

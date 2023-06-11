@@ -25,7 +25,7 @@ pub struct ConfirmationsLinks {
 pub struct TestUser {
     user_id: Uuid,
     pub username: String,
-    password: String,
+    pub password: String,
 }
 
 impl TestUser {
@@ -82,7 +82,6 @@ impl TestApp {
     pub fn get_confirmation_links(&self, email_request: &wiremock::Request) -> ConfirmationsLinks {
         let body: serde_json::Value = serde_json::from_slice(&email_request.body).unwrap();
         let expected_host = "127.0.0.1";
-
         let get_link = |s: &str| {
             let links: Vec<_> = linkify::LinkFinder::new()
                 .links(s)
@@ -114,6 +113,17 @@ impl TestApp {
     pub async fn get_login_html(&self) -> String {
         self.api_client
             .get(&format!("{}/login", &self.address))
+            .send()
+            .await
+            .expect("Failed to execute request.")
+            .text()
+            .await
+            .unwrap()
+    }
+
+    pub async fn get_admin_dashboard(&self) -> String {
+        self.api_client
+            .get(&format!("{}/admin/dashboard", &self.address))
             .send()
             .await
             .expect("Failed to execute request.")
