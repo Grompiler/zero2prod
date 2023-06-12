@@ -1,16 +1,10 @@
+use crate::utils::e500;
 use actix_web::{http::header::ContentType, web, HttpResponse};
 use anyhow::Context;
 use reqwest::header::LOCATION;
 use sqlx::PgPool;
 
 use crate::session_state::TypedSession;
-
-fn e500<T>(e: T) -> actix_web::Error
-where
-    T: std::fmt::Debug + std::fmt::Display + 'static,
-{
-    actix_web::error::ErrorInternalServerError(e)
-}
 
 pub async fn admin_dashboard(
     session: TypedSession,
@@ -35,6 +29,10 @@ pub async fn admin_dashboard(
                 </head>
                 <body>
                     <p>Welcome {username}!</p>
+                    <p>Available actions:</p>
+                    <ol>
+                        <li><a href="/admin/password">Change password</a></li>
+                    </ol>
                 </body>
             </html>"#
         )))

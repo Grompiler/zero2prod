@@ -3,6 +3,7 @@ use crate::email_client::EmailClient;
 use crate::routes::{
     admin_dashboard, confirm, health_check, home, login, login_form, publish_newsletter, subscribe,
 };
+use crate::routes::{change_password, change_password_form};
 use actix_session::{storage::RedisSessionStore, SessionMiddleware};
 use actix_web::cookie::Key;
 use actix_web::dev::Server;
@@ -86,6 +87,7 @@ async fn run(
     let message_store = CookieMessageStore::builder(secret_key.clone()).build();
     let message_framework = FlashMessagesFramework::builder(message_store).build();
     let redis_store = RedisSessionStore::new(redis_uri.expose_secret()).await?;
+    let hmac_secret = web::Data::new(HmacSecret(hmac_secret));
     let server = HttpServer::new(move || {
         App::new()
             .wrap(message_framework.clone())
@@ -102,10 +104,12 @@ async fn run(
             .route("/login", web::get().to(login_form))
             .route("/login", web::post().to(login))
             .route("/admin/dashboard", web::get().to(admin_dashboard))
+            .route("/admin/password", web::get().to(change_password_form))
+            .route("/admin/password", web::post().to(change_password))
             .app_data(db_pool.clone())
             .app_data(email_client.clone())
             .app_data(base_url.clone())
-            .app_data(web::Data::new(HmacSecret(hmac_secret.clone())))
+            .app_data(hmac_secret.clone())
     })
     .listen(listener)?
     .run();
