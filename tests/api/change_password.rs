@@ -65,3 +65,29 @@ async fn should_match_when_entering_password_twice() {
         html_page.contains("You entered two different passwords - the field values must match.")
     );
 }
+
+#[tokio::test]
+async fn should_redirect_when_password_is_invalid() {
+    // Given
+    let app = spawn_app().await;
+    let new_password = uuid::Uuid::new_v4().to_string();
+    let wrong_password = uuid::Uuid::new_v4().to_string();
+
+    app.post_login(&serde_json::json!({
+        "username": &app.test_user.username,
+        "password": &app.test_user.password,
+    }))
+    .await;
+
+    let _response = app
+        .post_change_password(&serde_json::json!({
+            "current_password": &wrong_password,
+            "new_password": &new_password,
+            "new_password_check": &new_password,
+
+        }))
+        .await;
+
+    let html_page = app.get_change_password_html().await;
+    assert!(html_page.contains("<p><i>The current password is incorrect.</i></p>"))
+}
