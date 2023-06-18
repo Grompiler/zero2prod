@@ -31,11 +31,19 @@ pub async fn submit_newsletter_form(
                             >
                         </label>
 
-                        <label>Newsletter content
+                        <label>Newsletter text content
                             <input 
                                 type="text" 
-                                placeholder="content" 
-                                name="content"
+                                placeholder="text content" 
+                                name="text_content"
+                            >
+                        </label>
+
+                        <label>Newsletter html content
+                            <input 
+                                type="text" 
+                                placeholder="html content" 
+                                name="html_content"
                             >
                         </label>
 
