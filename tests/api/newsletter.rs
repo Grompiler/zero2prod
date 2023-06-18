@@ -1,4 +1,4 @@
-use crate::helpers::{spawn_app, ConfirmationsLinks, TestApp};
+use crate::helpers::{assert_is_redirect_to, spawn_app, ConfirmationsLinks, TestApp};
 use uuid::Uuid;
 use wiremock::matchers::{any, method, path};
 use wiremock::{Mock, ResponseTemplate};
@@ -208,4 +208,26 @@ async fn should_reject_existing_user_when_wrong_password() {
     // Then
     assert_eq!(expected_status, response.status());
     assert_eq!(expected_auth_header, response.headers()["WWW-Authenticate"]);
+}
+
+#[tokio::test]
+async fn should_return_200_on_authenticated_get_newsletters() {
+    // Given
+    let app = spawn_app().await;
+    let expected_status = 200;
+    let admin_dashboard_uri = "/admin/dashboard";
+
+    // When
+    let login_body = serde_json::json!({
+        "username" : &app.test_user.username,
+        "password" : &app.test_user.password
+    });
+
+    let response = app.post_login(&login_body).await;
+    assert_is_redirect_to(&response, admin_dashboard_uri);
+
+    let response = app.get_newsletters().await;
+
+    // Then
+    assert_eq!(expected_status, response.status())
 }
