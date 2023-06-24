@@ -23,7 +23,7 @@ pub async fn try_processing(
     idempotency_key: &IdempotencyKey,
     user_id: Uuid,
 ) -> Result<NextAction, anyhow::Error> {
-    let mut transation = pool.begin().await?;
+    let mut transaction = pool.begin().await?;
     let n_inserted_rows = sqlx::query!(
         r#"
         INSERT INTO idempotency (
@@ -37,11 +37,11 @@ pub async fn try_processing(
         user_id,
         idempotency_key.as_ref()
     )
-    .execute(&mut transation)
+    .execute(&mut transaction)
     .await?
     .rows_affected();
     if n_inserted_rows > 0 {
-        Ok(NextAction::StartProcessing(transation))
+        Ok(NextAction::StartProcessing(transaction))
     } else {
         let saved_response = get_saved_response(pool, idempotency_key, user_id)
             .await?

@@ -1,11 +1,20 @@
-use std::time::Duration;
-
 use crate::helpers::{assert_is_redirect_to, spawn_app, ConfirmationsLinks, TestApp};
+use fake::faker::internet::en::SafeEmail;
+use fake::faker::name::en::Name;
+use fake::Fake;
+use std::time::Duration;
 use wiremock::matchers::{any, method, path};
 use wiremock::{Mock, ResponseTemplate};
 
 async fn create_unconfirmed_subscriber(app: &TestApp) -> ConfirmationsLinks {
-    let body = "name=le%20guin&email=ursula%40gmail.com";
+    let name: String = Name().fake();
+    let email: String = SafeEmail().fake();
+
+    let body = serde_urlencoded::to_string(&serde_json::json!({
+        "name": name,
+        "email": email,
+    }))
+    .unwrap();
 
     let _mock_guard = Mock::given(path("/email"))
         .and(method("POST"))
@@ -65,7 +74,12 @@ async fn should_not_send_newsletter_to_unconfirmed_subscribers() {
     assert_is_redirect_to(&response, expected_redirect);
     // Then
     let html_page = app.get_publish_newsletter_html().await;
-    assert!(html_page.contains("<p><i>The newsletter issue has been published!</i></p>"));
+    assert!(html_page.contains(
+        "<p><i>The newsletter issue has been accepted \
+        - emails will go out shortly.</i></p>"
+    ));
+
+    app.dispatch_all_pending_emails().await;
 }
 
 #[tokio::test]
@@ -95,7 +109,12 @@ async fn should_send_newsletter_to_confirmed_subscribers() {
 
     // Then
     let html_page = app.get_publish_newsletter_html().await;
-    assert!(html_page.contains("<p><i>The newsletter issue has been published!</i></p>"));
+    assert!(html_page.contains(
+        "<p><i>The newsletter issue has been accepted \
+        - emails will go out shortly.</i></p>"
+    ));
+
+    app.dispatch_all_pending_emails().await;
 }
 
 #[tokio::test]
@@ -158,12 +177,20 @@ async fn should_be_idempotent_when_creating_newsletter() {
     let response = app.post_publish_newsletters(&newsletter_request_body).await;
     assert_is_redirect_to(&response, expected_redirect);
     let html_page = app.get_publish_newsletter_html().await;
-    assert!(html_page.contains("<p><i>The newsletter issue has been published!</i></p>"));
+    assert!(html_page.contains(
+        "<p><i>The newsletter issue has been accepted \
+        - emails will go out shortly.</i></p>"
+    ));
 
     let response = app.post_publish_newsletters(&newsletter_request_body).await;
     assert_is_redirect_to(&response, expected_redirect);
     let html_page = app.get_publish_newsletter_html().await;
-    assert!(html_page.contains("<p><i>The newsletter issue has been published!</i></p>"));
+    assert!(html_page.contains(
+        "<p><i>The newsletter issue has been accepted \
+        - emails will go out shortly.</i></p>"
+    ));
+
+    app.dispatch_all_pending_emails().await;
 }
 
 #[tokio::test]
@@ -196,4 +223,5 @@ async fn should_handle_concurrent_form_submission() {
         response1.text().await.unwrap(),
         response2.text().await.unwrap()
     );
+    app.dispatch_all_pending_emails().await;
 }
