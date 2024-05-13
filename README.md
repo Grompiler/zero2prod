@@ -3,7 +3,7 @@ This is my journey learning rust, and building a production level application wi
 This application is an implementation of a newsletter.
 
 I deployed it on DigitalOcean.
-It features https, CI/CD, tests, telemetry, sercure user registration/authentication, informative error handling, persistance.
+It features https, CI/CD, tests, telemetry, secure user registration/authentication, informative error handling, persistance.
 
 ## Pre-requisites
 
